@@ -276,7 +276,22 @@ productsRouter.get(
 		if (includeListAkun) {
 			// Peringatan: ini menarik seluruh list_akun. Untuk melihat isi akun secara
 			// bertahap, pakai GET /:id/variasi/:variasiId/akun yang sudah dipaginasi.
-			const product = await col.findOne({ _id: id }, { projection: { variasi: 1 } });
+			// Field yang dikembalikan disebut satu per satu, TIDAK memakai { variasi: 1 }.
+			// Sebabnya: dokumen variasi juga memuat `reserved_list_akun` - array milik bot
+			// untuk akun yang sedang ditahan. Panel tidak memakainya, dan dengan menyebut
+			// field secara eksplisit, array itu tidak ikut dikirim dari database sama sekali
+			// (bukan sekadar dibuang setelah sampai di Node).
+			const product = await col.findOne(
+				{ _id: id },
+				{
+					projection: {
+						'variasi._id': 1,
+						'variasi.nama': 1,
+						'variasi.harga': 1,
+						'variasi.list_akun': 1
+					}
+				}
+			);
 
 			if (!product) {
 				res.status(404).json({ error: 'Not found' });
@@ -383,16 +398,47 @@ productsRouter.get(
 		}
 
 		const db = await getDb();
-		const doc = await db
-			.collection('products')
-			.findOne({ _id: id, 'variasi._id': vid }, { projection: { 'variasi.$': 1 } });
 
-		const variasi = Array.isArray(doc?.variasi) ? doc.variasi[0] : null;
-		if (!variasi) {
+		// Sama seperti di atas: `reserved_list_akun` sengaja tidak diambil.
+		// Operator posisi 'variasi.$' mengembalikan elemen apa adanya, jadi di sini
+		// dipakai aggregation supaya bisa memilih field satu per satu.
+		const agg = await db
+			.collection('products')
+			.aggregate([
+				{ $match: { _id: id, 'variasi._id': vid } },
+				{
+					$project: {
+						_id: 0,
+						v: {
+							$first: {
+								$filter: {
+									input: { $ifNull: ['$variasi', []] },
+									as: 'v',
+									cond: { $eq: ['$$v._id', vid] }
+								}
+							}
+						}
+					}
+				},
+				{
+					$project: {
+						ketemu: { $ne: ['$v', null] },
+						_id: '$v._id',
+						nama: '$v.nama',
+						harga: '$v.harga',
+						list_akun: { $ifNull: ['$v.list_akun', []] }
+					}
+				}
+			])
+			.toArray();
+
+		const hasil = agg[0];
+		if (!hasil?.ketemu) {
 			res.status(404).json({ error: 'Not found' });
 			return;
 		}
 
+		const { ketemu, ...variasi } = hasil;
 		res.json(variasi);
 	})
 );

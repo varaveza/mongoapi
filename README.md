@@ -234,6 +234,17 @@ Sebagian besar response identik. Yang sengaja diubah:
    Kalau nanti `JWT_SECRET` diisi nilai baru, **semua token lama langsung tidak berlaku**
    dan setiap client harus login ulang.
 
+6. **`reserved_list_akun` tidak pernah ikut di response.** Dokumen variasi di database
+   memuat array kedua bernama `reserved_list_akun`, ditulis oleh bot untuk akun yang
+   sedang ditahan. Panel tidak memakainya, jadi field itu tidak diambil sama sekali —
+   bukan dibuang setelah sampai, tapi memang tidak diminta dari database.
+
+   **Akibat yang perlu diketahui:** `list_akun_count` dan `POST .../ambil` hanya melihat
+   `list_akun`. Kalau stok sebuah variasi kebetulan sedang berada di `reserved_list_akun`,
+   variasi itu tampil sebagai stok 0 dan `ambil` menolak dengan "Stok kosong" — padahal
+   akunnya ada, hanya di array sebelah. Ini disengaja: akun yang ditahan bot memang tidak
+   boleh ikut terambil.
+
 ---
 
 ## Mengelola stok akun: tambah, lihat, hapus

@@ -194,6 +194,10 @@ akun yang sudah terjual hidup lagi di stok.
 
 			VariasiLengkap: {
 				type: 'object',
+				description:
+					'Field `reserved_list_akun` yang ada di database sengaja tidak disertakan. ' +
+					'Akibatnya, kalau stok sebuah variasi sedang berada di array itu, variasi ini ' +
+					'tampil dengan list_akun kosong.',
 				properties: {
 					_id: { type: 'string' },
 					nama: { type: 'string', example: '14 Day 1pcs' },
